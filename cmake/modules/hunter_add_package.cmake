@@ -36,31 +36,49 @@ macro(hunter_add_package)
   endif()
   list(GET _hunter_ap_arg_UNPARSED_ARGUMENTS 0 _hunter_ap_project)
 
-  hunter_get_project_files_to_load(
-      PROJECT_NAME "${_hunter_ap_project}"
-      COMPONENTS "${_hunter_ap_arg_COMPONENTS}"
-      FILES _hunter_ap_list
-      NEW_INJECTED_PACKAGE _hunter_ap_new_injected_package
-  )
+  if(DEFINED HUNTER_SKIP_PACKAGE_${_hunter_ap_project}
+     AND HUNTER_SKIP_PACKAGE_${_hunter_ap_project})
+    string(FIND "${${_hunter_ap_project}_DIR}" "${HUNTER_CACHED_ROOT}" _found_index)
+    if(NOT _found_index EQUAL -1)
+      hunter_gate_internal_error(
+           "HUNTER_SKIP_PACKAGE_${_hunter_ap_project} is ON,"
+           " but ${_hunter_ap_project}_DIR is managed by Hunter,"
+           " please set HUNTER_SKIP_PACKAGE_${_hunter_ap_project}"
+           " to OFF or pass HUNTER_SKIP_PACKAGE_${_hunter_ap_project}=ON"
+           " in a clean build.")
+    endif()
+    hunter_status_debug("Found HUNTER_SKIP_PACKAGE_${_hunter_ap_project}"
+                        " variable set to ON, skipping hunter_add_package"
+                        " for ${_hunter_ap_project}")
+  endif()
 
-  if(_hunter_ap_new_injected_package)
-    hunter_status_debug("Injected package '${_hunter_ap_project}'")
-    include(hunter_cacheable)
-    include(hunter_download)
-    include(hunter_pick_scheme)
-    hunter_pick_scheme(DEFAULT url_sha1_cmake)
-    hunter_cacheable("${_hunter_ap_project}")
-    hunter_download(PACKAGE_NAME "${_hunter_ap_project}")
-  else()
-    # do not use any variables after this 'foreach', because included files
-    # may call 'hunter_add_package' and rewrite it
-    foreach(x ${_hunter_ap_list})
-      hunter_status_debug("load: ${x}")
-      if(NOT EXISTS "${x}")
-        hunter_internal_error("File not found: '${x}'")
-      endif()
-      include("${x}")
-      hunter_status_debug("load: ${x} ... end")
-    endforeach()
+  if(HUNTER_SKIP_PACKAGE_${_hunter_ap_project})
+    hunter_get_project_files_to_load(
+        PROJECT_NAME "${_hunter_ap_project}"
+        COMPONENTS "${_hunter_ap_arg_COMPONENTS}"
+        FILES _hunter_ap_list
+        NEW_INJECTED_PACKAGE _hunter_ap_new_injected_package
+    )
+
+    if(_hunter_ap_new_injected_package)
+      hunter_status_debug("Injected package '${_hunter_ap_project}'")
+      include(hunter_cacheable)
+      include(hunter_download)
+      include(hunter_pick_scheme)
+      hunter_pick_scheme(DEFAULT url_sha1_cmake)
+      hunter_cacheable("${_hunter_ap_project}")
+      hunter_download(PACKAGE_NAME "${_hunter_ap_project}")
+    else()
+      # do not use any variables after this 'foreach', because included files
+      # may call 'hunter_add_package' and rewrite it
+      foreach(x ${_hunter_ap_list})
+        hunter_status_debug("load: ${x}")
+        if(NOT EXISTS "${x}")
+          hunter_internal_error("File not found: '${x}'")
+        endif()
+        include("${x}")
+        hunter_status_debug("load: ${x} ... end")
+      endforeach()
+    endif()
   endif()
 endmacro()
